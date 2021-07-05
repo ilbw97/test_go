@@ -1913,10 +1913,10 @@ func main() {
 */
 import (
 	"fmt"
-	"os"
-	"strings"
+	"sync"
 )
 
+/*
 func main() {
 	tables := []string{"policy_list", "traffic_log", "detect_log", "id_manage", "server_status_log"}
 	for _, e := range tables {
@@ -1926,4 +1926,139 @@ func main() {
 		pair := strings.Split(e, "=")
 		fmt.Println(pair[0], "=>", pair[1])
 	}
+}*/
+/*
+type Data struct {
+	tag    string //pool tag
+	buffer []int  //data store용 slice
 }
+
+func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU()) //모든 cpu 사용
+
+	p := sync.Pool{ //pool 할당
+		New: func() interface{} { //get 함수 사용시 호출될 함수 정의 단 pool에 객체가 없을 때만 호출되므로 객체를 생성하고, 메모리를 할당하는 code를 작성. pool에 객체가 들어있다면 New field의 함수는 호출되지 않고, 보관된 객체가 return 됨.
+			data := new(Data)             //새 memory 할당
+			data.tag = "new"              //tag 설정
+			data.buffer = make([]int, 10) //slice 공간 할당
+			return data                   //할당한 memory(object) return
+		},
+	}
+	for i := 0; i < 10; i++ {
+		go func() { //goroutine 10개 생성
+			data := p.Get().(*Data) //pool에서 *Data type으로 data 가져옴. (Type assertion)
+			for index := range data.buffer {
+				data.buffer[index] = rand.Intn(100) //slice에 random 값 저장
+			}
+			fmt.Println(data) //data 내용 출력
+			data.tag = "used" //객체가 사용되었다는 tag 설정
+			p.Put(data)       //pool에 객체 보관
+		}()
+	}
+	for i := 0; i < 10; i++ {
+		go func() { //goroutine 10개 생성
+			data := p.Get().(*Data) //pool에서 *Data type으로 data 가져옴
+
+			n := 0
+			for index := range data.buffer {
+				data.buffer[index] = n //slice에 짝수 저장
+				n += 2
+			}
+			fmt.Println(data) //data 내용 출력
+			data.tag = "used" //객체가 사용되었다는 태그 설정
+			p.Put(data)       //pool에 객체 보관
+		}()
+	}
+	fmt.Scanln()
+}
+*/
+type DB struct {
+	bConnected bool
+}
+
+func (c *DB) connect() {
+	c.bConnected = true
+	fmt.Println("[connection completed]")
+}
+
+func (c *DB) query() {
+	if c.bConnected {
+		fmt.Println("    [query completed]")
+	} else {
+		fmt.Println("    [could not query]")
+	}
+}
+
+func main() {
+	pool := sync.Pool{
+		New: func() interface{} {
+			r := new(DB)
+			r.bConnected = false
+			return r
+		},
+	}
+
+	for i := 0; i < 10; i++ {
+		go func() {
+			c := pool.Get().(*DB)
+			if !c.bConnected {
+				c.connect()
+			}
+
+			c.query()
+			pool.Put(c)
+		}()
+	}
+
+	fmt.Scanln()
+}
+
+/*
+func main() {
+	p := sync.Pool{
+		New: func() interface{} {
+			return make([]int, 0, 10)
+		},
+	}
+	for n := 0; n < 10; n++ {
+		// slice := make([]int, 0, 10)
+		slice := p.Get().([]int) //pull에서 slice를 받아옴. pull은 interface를 반환하기 때문에 type assertion 필요/
+		slice = append(slice, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+		fmt.Println(slice)
+		// 사용을 마친 슬라이스는 초기화 해 pool에 반환
+		p.Put(slice[:0])
+	}
+}
+*/
+/*
+func main() {
+	wg := sync.WaitGroup{}
+	wg.Add(10)
+	/*slice := make([]int, 0, 10)
+
+	for n := 0; n < 10; n++ {
+		go func() {
+			slice = append(slice, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+			fmt.Println(slice)
+			slice = slice[:0]
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	p := sync.Pool{ // "A Pool is safe for use by multiple goroutines simultaneously."
+		New: func() interface{} {
+			return make([]int, 0, 10)
+		},
+	}
+	for n := 0; n < 10; n++ {
+		go func() {
+			slice := p.Get().([]int)
+			slice = append(slice, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+			fmt.Println(slice)
+			p.Put(slice[:0])
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+}
+*/
